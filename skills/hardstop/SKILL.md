@@ -1,7 +1,7 @@
 ---
 name: hardstop
-version: "1.1"
-description: "ACTIVATE THIS SKILL FOR ANY SHELL COMMAND. Check curl, wget, rm, sudo, apt, dpkg, chmod, dd, format, powershell, bash, sh. Check pipe patterns like | sh or | bash. Check when user says sysadmin told me, Stack Overflow says, is this safe, can I run. This skill blocks dangerous commands and warns on risky ones. ALWAYS apply the safety protocol from this document before responding about any command."
+version: "1.2"
+description: "ACTIVATE THIS SKILL FOR ANY SHELL COMMAND. Check curl, wget, rm, sudo, apt, dpkg, chmod, dd, format, powershell, bash, sh. Check pipe patterns like | sh or | bash. Check shell wrappers like bash -c, xargs, find -exec. Check cloud CLI (aws, gcloud, kubectl, terraform). Check when user says sysadmin told me, Stack Overflow says, is this safe, can I run. This skill blocks dangerous commands and warns on risky ones. ALWAYS apply the safety protocol from this document before responding about any command."
 author: Francesco Marinoni Moretto
 license: CC-BY-4.0
 triggers:
@@ -57,6 +57,30 @@ triggers:
 | `> /dev/sda` | Destroys disk |
 | `sudo rm -rf /` | Privileged system destruction |
 | `chmod -R 777 /` | World-writable system |
+
+#### Shell Wrappers (v1.2)
+
+| Pattern | Why |
+|---------|-----|
+| `bash -c "rm -rf ..."` | Hides recursive delete in shell wrapper |
+| `sh -c "... \| bash"` | Hides curl/wget pipe to shell |
+| `sudo bash -c "..."` | Elevated shell wrapper |
+| `xargs rm -rf` | Dynamic arguments to recursive delete |
+| `find ... -exec rm -rf` | find executing recursive delete |
+| `find ... -delete` | find with delete flag |
+
+#### Cloud CLI Destructive Operations (v1.2)
+
+| Pattern | Why |
+|---------|-----|
+| `aws s3 rm --recursive` | Deletes all S3 objects |
+| `aws ec2 terminate-instances` | Terminates EC2 instances |
+| `gcloud projects delete` | Deletes entire GCP project |
+| `kubectl delete namespace` | Deletes K8s namespace |
+| `terraform destroy` | Destroys all infrastructure |
+| `firebase firestore:delete --all-collections` | Wipes all Firestore data |
+| `redis-cli FLUSHALL` | Wipes all Redis data |
+| `DROP DATABASE` / `DROP TABLE` | SQL database destruction |
 
 #### Package Manager Force Operations
 
@@ -384,6 +408,13 @@ Instead, let me [safer approach].
 
 ## Changelog
 
+### v1.2 (2026-01-20)
+- Added Shell Wrapper detection patterns (bash -c, sh -c, sudo bash -c, xargs, find -exec)
+- Added Cloud CLI patterns (AWS, GCP, Firebase, Kubernetes, Terraform, Docker)
+- Added Database CLI patterns (Redis, MongoDB, PostgreSQL, MySQL)
+- Added Platform CLI patterns (Vercel, Netlify, Heroku, Fly.io, GitHub)
+- Added SQL destructive patterns (DROP, TRUNCATE, DELETE without WHERE)
+
 ### v1.1 (2025-01-18)
 - Added Package Manager Force Operations to INSTANT BLOCK
 - Added Package removal to RISKY category
@@ -420,7 +451,7 @@ Copy to your agent's skill/instruction directory.
 
 ---
 
-**Version:** 1.1
+**Version:** 1.2
 **Author:** Francesco Marinoni Moretto
 **License:** CC-BY-4.0
 **Repository:** https://github.com/frmoretto/hardstop

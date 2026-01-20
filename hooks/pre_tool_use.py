@@ -39,7 +39,7 @@ STATE_DIR = Path.home() / ".hardstop"
 STATE_FILE = STATE_DIR / "state.json"
 SKIP_FILE = STATE_DIR / "skip_next"
 LOG_FILE = STATE_DIR / "audit.log"
-PLUGIN_VERSION = "1.0.0"
+PLUGIN_VERSION = "1.2.0"
 
 # Fail-closed: if True, errors during safety check block the command
 FAIL_CLOSED = True
@@ -105,11 +105,10 @@ DANGEROUS_PATTERNS = [
     (r"chmod\s+(-[^\s]*\s+)*-R\s+777", "Recursively sets world-writable"),
     (r"chown\s+(-[^\s]*\s+)*-R\s+.*\s+/(?!home)", "Recursive chown on system directories"),
 
-    # === HISTORY/ALIAS MANIPULATION ===
+    # === HISTORY MANIPULATION ===
     (r">\s*~/\.bash_history", "Clears bash history"),
-    (r"alias\s+ls=", "Potentially malicious alias override"),
-    (r"alias\s+cd=", "Potentially malicious alias override"),
-    (r"alias\s+rm=", "Potentially malicious alias override"),
+    # Note: alias patterns removed - too many false positives with legitimate aliases like:
+    # alias ls='ls --color=auto', alias rm='rm -i', alias cd='cd && ls'
 
     # === CRON/SCHEDULED TASKS ===
     (r"crontab\s+-r", "Removes all cron jobs"),
@@ -182,6 +181,102 @@ DANGEROUS_PATTERNS = [
     (r"Set-ExecutionPolicy\s+Bypass", "Bypasses PowerShell execution policy"),
     (r"powershell.*-ExecutionPolicy\s+Bypass", "Bypasses PowerShell execution policy"),
     (r"powershell.*-ep\s+bypass", "Bypasses PowerShell execution policy"),
+
+    # ============================================================
+    # SHELL WRAPPER PATTERNS (detecting hidden dangerous commands)
+    # ============================================================
+
+    # bash -c / sh -c with dangerous payloads
+    (r"\b(ba)?sh\s+-c\s+[\"'].*\brm\s+(-[^\s]*\s+)*-r", "Shell wrapper hiding recursive delete"),
+    (r"\b(ba)?sh\s+-c\s+[\"'].*\bdd\s+.*of=/dev/", "Shell wrapper hiding disk write"),
+    (r"\b(ba)?sh\s+-c\s+[\"'].*\bmkfs", "Shell wrapper hiding filesystem format"),
+    (r"\b(ba)?sh\s+-c\s+[\"'].*\bcurl.*\|\s*(ba)?sh", "Shell wrapper hiding curl pipe to shell"),
+    (r"\b(ba)?sh\s+-c\s+[\"'].*\bwget.*\|\s*(ba)?sh", "Shell wrapper hiding wget pipe to shell"),
+
+    # sudo with shell wrappers
+    (r"\bsudo\s+(ba)?sh\s+-c\s+[\"'].*\brm\s+(-[^\s]*\s+)*-r", "Sudo shell wrapper hiding recursive delete"),
+    (r"\bsudo\s+(ba)?sh\s+-c\s+[\"'].*\bchmod\s+(-[^\s]*\s+)*777", "Sudo shell wrapper hiding chmod 777"),
+
+    # env wrapper with dangerous commands
+    (r"\benv\s+.*\brm\s+(-[^\s]*\s+)*-r", "Env wrapper with recursive delete"),
+
+    # xargs / find -exec with dangerous commands
+    (r"\bxargs\s+.*\brm\s+(-[^\s]*\s+)*-r", "xargs piping to recursive delete"),
+    (r"\bfind\s+.*-exec\s+rm\s+(-[^\s]*\s+)*-r", "find -exec with recursive delete"),
+    # Note: generic 'find -delete' removed - too common for legitimate cleanup like:
+    # find . -name "*.tmp" -delete, find /tmp -mtime +7 -delete
+    # Only block find -delete on dangerous paths:
+    (r"\bfind\s+(~|/home|/|/etc|/usr|/var)\s+.*-delete", "find -delete on system/home paths"),
+
+    # ============================================================
+    # CLOUD CLI DESTRUCTIVE OPERATIONS
+    # ============================================================
+
+    # === AWS CLI ===
+    (r"\baws\s+s3\s+rm\s+.*--recursive", "AWS S3 recursive delete"),
+    (r"\baws\s+s3\s+rb\s+.*--force", "AWS S3 force remove bucket"),
+    (r"\baws\s+ec2\s+terminate-instances\b", "AWS EC2 terminate instances"),
+    (r"\baws\s+rds\s+delete-db-instance\b", "AWS RDS delete database"),
+    (r"\baws\s+cloudformation\s+delete-stack\b", "AWS CloudFormation delete stack"),
+    (r"\baws\s+dynamodb\s+delete-table\b", "AWS DynamoDB delete table"),
+    (r"\baws\s+eks\s+delete-cluster\b", "AWS EKS delete cluster"),
+    (r"\baws\s+lambda\s+delete-function\b", "AWS Lambda delete function"),
+    (r"\baws\s+iam\s+delete-role\b", "AWS IAM delete role"),
+    (r"\baws\s+iam\s+delete-user\b", "AWS IAM delete user"),
+
+    # === GCP (gcloud) ===
+    (r"\bgcloud\s+projects\s+delete\b", "GCP delete entire project"),
+    (r"\bgcloud\s+compute\s+instances\s+delete\b", "GCP delete compute instance"),
+    (r"\bgcloud\s+sql\s+instances\s+delete\b", "GCP delete SQL instance"),
+    (r"\bgcloud\s+container\s+clusters\s+delete\b", "GCP delete GKE cluster"),
+    (r"\bgcloud\s+storage\s+rm\s+.*-r", "GCP storage recursive delete"),
+    (r"\bgcloud\s+functions\s+delete\b", "GCP delete Cloud Function"),
+    (r"\bgcloud\s+iam\s+service-accounts\s+delete\b", "GCP delete service account"),
+
+    # === FIREBASE ===
+    (r"\bfirebase\s+projects:delete\b", "Firebase delete project"),
+    (r"\bfirebase\s+firestore:delete\s+.*--all-collections", "Firebase delete all Firestore data"),
+    (r"\bfirebase\s+database:remove\b", "Firebase delete Realtime DB"),
+    (r"\bfirebase\s+functions:delete\b", "Firebase delete functions"),
+
+    # === KUBERNETES (kubectl) ===
+    (r"\bkubectl\s+delete\s+namespace\b", "Kubernetes delete namespace"),
+    (r"\bkubectl\s+delete\s+all\s+--all", "Kubernetes delete all resources"),
+    (r"\bkubectl\s+delete\s+.*--all\s+--all-namespaces", "Kubernetes delete across all namespaces"),
+    (r"\bhelm\s+uninstall\b", "Helm uninstall release"),
+
+    # === DOCKER ===
+    (r"\bdocker\s+system\s+prune\s+.*-a", "Docker prune all unused data"),
+    (r"\bdocker\s+volume\s+rm\b", "Docker remove volume (data loss)"),
+    (r"\bdocker\s+volume\s+prune\b", "Docker prune volumes"),
+
+    # === TERRAFORM / PULUMI ===
+    (r"\bterraform\s+destroy\b", "Terraform destroy infrastructure"),
+    (r"\bpulumi\s+destroy\b", "Pulumi destroy resources"),
+
+    # === DATABASE CLI ===
+    (r"\bredis-cli\s+FLUSHALL", "Redis flush all data"),
+    (r"\bredis-cli\s+FLUSHDB", "Redis flush database"),
+    (r"\bmongosh?.*dropDatabase", "MongoDB drop database"),
+    (r"\bdropdb\b", "PostgreSQL drop database"),
+    (r"\bmysqladmin\s+drop\b", "MySQL drop database"),
+
+    # === OTHER PLATFORMS ===
+    (r"\bvercel\s+remove\s+.*--yes", "Vercel remove deployment"),
+    (r"\bvercel\s+projects\s+rm\b", "Vercel delete project"),
+    (r"\bnetlify\s+sites:delete\b", "Netlify delete site"),
+    (r"\bheroku\s+apps:destroy\b", "Heroku destroy app"),
+    (r"\bheroku\s+pg:reset\b", "Heroku reset Postgres"),
+    (r"\bfly\s+(apps\s+)?destroy\b", "Fly.io destroy app"),
+    (r"\bgh\s+repo\s+delete\b", "GitHub delete repository"),
+    (r"\bnpm\s+unpublish\b", "npm unpublish package"),
+
+    # === SQL DESTRUCTIVE (without WHERE) ===
+    (r"\bDELETE\s+FROM\s+\w+\s*;", "SQL DELETE without WHERE clause"),
+    (r"\bDELETE\s+FROM\s+\w+\s*$", "SQL DELETE without WHERE clause"),
+    (r"\bTRUNCATE\s+TABLE\b", "SQL TRUNCATE TABLE"),
+    (r"\bDROP\s+TABLE\b", "SQL DROP TABLE"),
+    (r"\bDROP\s+DATABASE\b", "SQL DROP DATABASE"),
 ]
 
 SAFE_PATTERNS = [
