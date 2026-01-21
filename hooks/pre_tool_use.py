@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """
-Hardstop Plugin — PreToolUse Hook v1.0.0
+Hardstop Plugin — PreToolUse Hook v1.3.1
 
 Two-layer protection:
   Layer 1: Pattern matching (instant)
   Layer 2: Claude CLI analysis (within subscription)
 
 Exit codes:
-  0 = Allow
-  2 = Block
+  0 = Success (uses JSON output for allow/deny decision)
+
+Blocking uses permissionDecision: "deny" in JSON output instead of exit code 2.
+This ensures consistent behavior between CLI and VS Code extension.
 
 Design principle: Fail-closed. If safety check fails, block the command.
 """
@@ -39,7 +41,7 @@ STATE_DIR = Path.home() / ".hardstop"
 STATE_FILE = STATE_DIR / "state.json"
 SKIP_FILE = STATE_DIR / "skip_next"
 LOG_FILE = STATE_DIR / "audit.log"
-PLUGIN_VERSION = "1.3.0"
+PLUGIN_VERSION = "1.3.1"
 
 # Fail-closed: if True, errors during safety check block the command
 FAIL_CLOSED = True
@@ -793,41 +795,59 @@ def ask_claude(command: str, cwd: str) -> Tuple[str, str]:
 # === MAIN ===
 
 def block_command(message: str, command: str, layer: str, cwd: str):
-    """Block a command and exit with code 2."""
+    """
+    Block a command using Claude Code's structured JSON output.
+
+    Uses exit code 0 with permissionDecision: "deny" instead of exit code 2.
+    This ensures consistent behavior between CLI and VS Code extension.
+    Exit code 2 causes VS Code to treat it as a session error and restart the chat.
+    """
     log_decision(command, "BLOCK", message, layer, cwd)
-    print(f"\n🛑 BLOCKED: {message}\n", file=sys.stderr)
-    print(f"Command: {command[:100]}{'...' if len(command) > 100 else ''}", file=sys.stderr)
-    print("\nThis action has been stopped for your safety.", file=sys.stderr)
-    print("If you believe this is a mistake, use '/hs skip' and retry.\n", file=sys.stderr)
-    sys.exit(2)
+
+    # Build the block reason message
+    truncated_cmd = command[:100] + ('...' if len(command) > 100 else '')
+    reason = f"🛑 BLOCKED: {message}\nCommand: {truncated_cmd}\nUse '/hs skip' to bypass."
+
+    # Output structured JSON for Claude Code to parse
+    output = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason
+        }
+    }
+    print(json.dumps(output))
+    sys.exit(0)
 
 
 def check_uninstall_script(command: str) -> bool:
     """
-    Check if this is the Hardstop uninstall script.
+    Check if this is the Hardstop removal script.
     Returns True if blocked (shows custom message), False otherwise.
     """
-    # Detect uninstall script execution
-    uninstall_patterns = [
+    # Detect removal script execution
+    removal_patterns = [
         r"uninstall\.ps1",
         r"uninstall\.sh",
     ]
 
-    for pattern in uninstall_patterns:
+    for pattern in removal_patterns:
         if re.search(pattern, command, re.IGNORECASE):
-            print("\n" + "=" * 60, file=sys.stderr)
-            print("🗑️  HARDSTOP UNINSTALL DETECTED", file=sys.stderr)
-            print("=" * 60, file=sys.stderr)
-            print("\nYou are about to uninstall Hardstop.", file=sys.stderr)
-            print("This will remove:", file=sys.stderr)
-            print("  • Plugin files", file=sys.stderr)
-            print("  • Skill configuration", file=sys.stderr)
-            print("  • Hooks from settings.json", file=sys.stderr)
-            print("\nTo confirm uninstallation:", file=sys.stderr)
-            print("  1. Run: /hs skip", file=sys.stderr)
-            print("  2. Then retry this command", file=sys.stderr)
-            print("\n" + "=" * 60 + "\n", file=sys.stderr)
-            sys.exit(2)
+            reason = (
+                "🗑️ HARDSTOP REMOVAL DETECTED\n"
+                "You are about to remove Hardstop.\n"
+                "This will remove: Plugin files, Skill config, Hooks\n"
+                "To confirm: Run '/hs skip' then retry."
+            )
+            output = {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason
+                }
+            }
+            print(json.dumps(output))
+            sys.exit(0)
 
     return False
 

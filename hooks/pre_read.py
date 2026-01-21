@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-Hardstop Plugin — PreToolUse Hook for Read Tool v1.3.0
+Hardstop Plugin — PreToolUse Hook for Read Tool v1.3.1
 
 Blocks reading of sensitive credential files to prevent secrets exposure.
 
 Exit codes:
-  0 = Allow
-  2 = Block
+  0 = Success (uses JSON output for allow/deny decision)
+
+Blocking uses permissionDecision: "deny" in JSON output instead of exit code 2.
+This ensures consistent behavior between CLI and VS Code extension.
 
 Design principle: Fail-closed. If safety check fails, block the read.
 """
@@ -25,7 +27,7 @@ STATE_DIR = Path.home() / ".hardstop"
 SKIP_FILE = STATE_DIR / "skip_next"
 LOG_FILE = STATE_DIR / "audit.log"
 DEBUG_FILE = STATE_DIR / "hook_debug.log"
-PLUGIN_VERSION = "1.3.0"
+PLUGIN_VERSION = "1.3.1"
 
 # Fail-closed: if True, errors during safety check block the read
 FAIL_CLOSED = True
@@ -351,14 +353,28 @@ def is_skip_enabled() -> bool:
 # === OUTPUT FUNCTIONS ===
 
 def block(reason: str, file_path: str, pattern: str = ""):
-    """Output block message and exit."""
-    print(f"\n🛑 BLOCKED: {reason}\n", file=sys.stderr)
-    print(f"File: {file_path}", file=sys.stderr)
+    """
+    Block a read using Claude Code's structured JSON output.
+
+    Uses exit code 0 with permissionDecision: "deny" instead of exit code 2.
+    This ensures consistent behavior between CLI and VS Code extension.
+    """
+    # Build the block reason message
+    msg = f"🛑 BLOCKED: {reason}\nFile: {file_path}"
     if pattern:
-        print(f"Pattern: {pattern}", file=sys.stderr)
-    print("\nThis file may contain sensitive credentials.", file=sys.stderr)
-    print("If you need to read this file, use '/hs skip' first.\n", file=sys.stderr)
-    sys.exit(2)
+        msg += f"\nPattern: {pattern}"
+    msg += "\nUse '/hs skip' to bypass."
+
+    # Output structured JSON for Claude Code to parse
+    output = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": msg
+        }
+    }
+    print(json.dumps(output))
+    sys.exit(0)
 
 
 def warn(reason: str, file_path: str):
@@ -371,6 +387,19 @@ def warn(reason: str, file_path: str):
 
 # === MAIN ===
 
+def block_error(reason: str):
+    """Block due to an error (fail-closed behavior) using JSON output."""
+    output = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": f"🛑 BLOCKED (fail-closed): {reason}\nUse '/hs skip' to bypass."
+        }
+    }
+    print(json.dumps(output))
+    sys.exit(0)
+
+
 def main():
     """Main hook logic."""
     # Read hook input from stdin
@@ -379,13 +408,11 @@ def main():
         input_data = json.loads(input_text)
     except json.JSONDecodeError as e:
         if FAIL_CLOSED:
-            print(f"Error: Failed to parse hook input: {e}", file=sys.stderr)
-            sys.exit(2)
+            block_error(f"Failed to parse hook input: {e}")
         sys.exit(0)
     except Exception as e:
         if FAIL_CLOSED:
-            print(f"Error: Failed to read hook input: {e}", file=sys.stderr)
-            sys.exit(2)
+            block_error(f"Failed to read hook input: {e}")
         sys.exit(0)
 
     # Extract file path from tool input
