@@ -28,7 +28,19 @@ STATE_DIR = Path.home() / ".hardstop"
 STATE_FILE = STATE_DIR / "state.json"
 SKIP_FILE = STATE_DIR / "skip_next"
 LOG_FILE = STATE_DIR / "audit.log"
-PLUGIN_VERSION = "1.0.0"
+PLUGIN_DIR = Path.home() / ".claude" / "plugins" / "hs"
+
+
+def get_version() -> str:
+    """Read version from plugin.json (single source of truth)."""
+    plugin_json = PLUGIN_DIR / ".claude-plugin" / "plugin.json"
+    try:
+        if plugin_json.exists():
+            data = json.loads(plugin_json.read_text())
+            return data.get("version", "unknown")
+    except (json.JSONDecodeError, IOError):
+        pass
+    return "unknown"
 
 
 def load_state() -> dict:
@@ -113,7 +125,7 @@ def cmd_status():
         except (ValueError, IOError):
             skip_count = 1  # Fallback for old format
 
-    print(f"Hardstop v{PLUGIN_VERSION}")
+    print(f"Hardstop v{get_version()}")
     print()
     print(f"  Status:      {'🟢 Enabled' if enabled else '🔴 Disabled'}")
     if skip_count > 0:
@@ -180,7 +192,7 @@ def cmd_log():
 
 def cmd_help():
     print(f"""
-Hardstop v{PLUGIN_VERSION}
+Hardstop v{get_version()}
 The mechanical brake for AI-generated commands
 
 Commands:

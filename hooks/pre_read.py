@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Hardstop Plugin — PreToolUse Hook for Read Tool v1.3.1
+Hardstop Plugin — PreToolUse Hook (Read)
 
 Blocks reading of sensitive credential files to prevent secrets exposure.
 
@@ -27,7 +27,6 @@ STATE_DIR = Path.home() / ".hardstop"
 SKIP_FILE = STATE_DIR / "skip_next"
 LOG_FILE = STATE_DIR / "audit.log"
 DEBUG_FILE = STATE_DIR / "hook_debug.log"
-PLUGIN_VERSION = "1.3.1"
 
 # Fail-closed: if True, errors during safety check block the read
 FAIL_CLOSED = True
@@ -272,7 +271,6 @@ def log_decision(file_path: str, verdict: str, reason: str, layer: str):
         STATE_DIR.mkdir(parents=True, exist_ok=True)
         entry = {
             "timestamp": datetime.now().isoformat(),
-            "version": PLUGIN_VERSION,
             "tool": "Read",
             "file_path": file_path[:500],  # Truncate very long paths
             "verdict": verdict,

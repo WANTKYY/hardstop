@@ -2,6 +2,59 @@
 
 All notable changes to Hardstop will be documented in this file.
 
+## [1.3.2] - 2026-01-21
+
+### New Feature: Multi-Skip
+
+Skip multiple commands at once with `/hs skip <count>`.
+
+**Usage:**
+- `/hs skip` — Skip 1 command (unchanged)
+- `/hs skip 3` — Skip next 3 commands
+- `/hs skip 10` — Skip next 10 commands (max: 100)
+
+**Status output:**
+```
+Hardstop v1.3.2
+  Status:      🟢 Enabled
+  Skip next:   3 commands
+```
+
+### Changed
+- `hs_cmd.py`: Accept optional count argument for skip command
+- `pre_tool_use.py`: `decrement_skip()` and `get_skip_count()` functions
+- `pre_read.py`: Same skip counter logic for Read tool
+- Status command now shows remaining skip count
+- Backward compatible with old skip file format
+
+---
+
+## [1.3.1] - 2026-01-21
+
+### Fixed: VS Code Extension Chat Restart
+
+Changed blocking mechanism from exit code 2 to JSON output with `permissionDecision: "deny"`.
+
+**Problem:** Exit code 2 caused VS Code extension to treat blocks as session errors and restart the chat.
+
+**Solution:** Use structured JSON output (Claude Code documented API):
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "🛑 BLOCKED: reason..."
+  }
+}
+```
+
+### Changed
+- `pre_tool_use.py`: `block_command()`, `check_uninstall_script()` now use JSON output
+- `pre_read.py`: `block()`, `block_error()` now use JSON output
+- Both hooks now exit with code 0 (success) and use JSON for allow/deny decisions
+
+---
+
 ## [1.3.0] - 2026-01-20
 
 ### New Feature: Read Tool Protection

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Hardstop Plugin — PreToolUse Hook v1.3.1
+Hardstop Plugin — PreToolUse Hook (Bash)
 
 Two-layer protection:
   Layer 1: Pattern matching (instant)
@@ -41,7 +41,6 @@ STATE_DIR = Path.home() / ".hardstop"
 STATE_FILE = STATE_DIR / "state.json"
 SKIP_FILE = STATE_DIR / "skip_next"
 LOG_FILE = STATE_DIR / "audit.log"
-PLUGIN_VERSION = "1.3.1"
 
 # Fail-closed: if True, errors during safety check block the command
 FAIL_CLOSED = True
@@ -407,7 +406,7 @@ def log_decision(command: str, verdict: str, reason: str, layer: str, cwd: str):
         STATE_DIR.mkdir(parents=True, exist_ok=True)
         entry = {
             "timestamp": datetime.now().isoformat(),
-            "version": PLUGIN_VERSION,
+            "tool": "Bash",
             "command": command[:500],  # Truncate very long commands
             "cwd": cwd,
             "verdict": verdict,

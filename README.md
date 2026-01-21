@@ -4,7 +4,7 @@
 
 Hardstop is a defense-in-depth safety layer that catches dangerous commands and credential file reads before they execute: even when soft guardrails fail.
 
-![Version](https://img.shields.io/badge/version-1.3.0-green) ![License](https://img.shields.io/badge/license-CC_BY_4.0-blue) ![Platform](https://img.shields.io/badge/platform-macOS_%7C_Linux_%7C_Windows-lightgrey)
+![Version](https://img.shields.io/badge/version-1.3.2-green) ![License](https://img.shields.io/badge/license-CC_BY_4.0-blue) ![Platform](https://img.shields.io/badge/platform-macOS_%7C_Linux_%7C_Windows-lightgrey)
 
 [Installation](#-installation) • [How It Works](#%EF%B8%8F-how-it-works) • [Commands](#%EF%B8%8F-controls) • [Report Issue](https://github.com/frmoretto/hardstop/issues)
 
@@ -37,13 +37,17 @@ $ Read ~/.aws/credentials
 
 # You check the status
 $ /hs status
-Hardstop v1.3.0
+Hardstop v1.3.2
   Status:      🟢 Enabled
   Fail mode:   Fail-closed
 
 # One-time bypass for a command you trust
 $ /hs skip
 ⏭️  Next command will skip safety check
+
+# Multi-skip: bypass next 3 commands (v1.3.2)
+$ /hs skip 3
+⏭️  Next 3 commands will skip safety check
 
 # View recent security decisions
 $ /hs log
@@ -124,7 +128,8 @@ Control Hardstop directly from the chat prompt.
 |---------|--------|
 | `/hs on` | Enable protection (Default) |
 | `/hs off` | Disable temporarily |
-| `/hs skip` | Bypass checks for the very next command only |
+| `/hs skip` | Bypass checks for the next command |
+| `/hs skip [n]` | Bypass checks for the next n commands *(v1.3.2)* |
 | `/hs status` | Check system health |
 | `/hs log` | View recent security decisions |
 
