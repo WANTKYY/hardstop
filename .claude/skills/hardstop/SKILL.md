@@ -1,9 +1,9 @@
 ---
 name: hardstop
-description: "ACTIVATE THIS SKILL FOR ANY SHELL COMMAND. Check curl, wget, rm, sudo, apt, dpkg, chmod, dd, format, powershell, bash, sh. Check pipe patterns like | sh or | bash. Check when user says sysadmin told me, Stack Overflow says, is this safe, can I run. This skill blocks dangerous commands and warns on risky ones. ALWAYS apply the safety protocol from this document before responding about any command."
+description: "ACTIVATE THIS SKILL FOR ANY SHELL COMMAND OR FILE READ. Check curl, wget, rm, sudo, apt, dpkg, chmod, dd, format, powershell, bash, sh. Check pipe patterns like | sh or | bash. Check when user says sysadmin told me, Stack Overflow says, is this safe, can I run. Block reading of .env, .ssh, .aws, and credential files. This skill blocks dangerous commands and warns on risky ones. ALWAYS apply the safety protocol from this document before responding about any command."
 ---
 
-# Hardstop Skill v1.1
+# Hardstop Skill v1.3
 
 > **Note:** This skill complements the Hardstop plugin. The plugin provides deterministic protection via hooks; this skill provides LLM-level awareness for platforms without hook support.
 
@@ -336,6 +336,60 @@ Instead, let me [safer approach].
 
 ---
 
+## 9. Read Tool Protection (v1.3)
+
+**Hardstop now monitors file reads to prevent secrets exposure.**
+
+### DANGEROUS Reads (Blocked)
+
+| Category | Example Paths | Why |
+|----------|---------------|-----|
+| SSH Keys | `~/.ssh/id_rsa`, `~/.ssh/id_ed25519` | Private keys = full access |
+| AWS Credentials | `~/.aws/credentials`, `~/.aws/config` | Cloud account access |
+| GCP Credentials | `~/.config/gcloud/credentials.db` | Cloud account access |
+| Azure Credentials | `~/.azure/credentials` | Cloud account access |
+| Environment Files | `.env`, `.env.local`, `.env.production` | Contains API keys, passwords |
+| Docker Config | `~/.docker/config.json` | Registry credentials |
+| Kubernetes Config | `~/.kube/config` | Cluster access |
+| Database Credentials | `~/.pgpass`, `~/.my.cnf` | Database access |
+| Git Credentials | `~/.git-credentials`, `~/.gitconfig` | Repository access |
+| Package Managers | `~/.npmrc`, `~/.pypirc` | Registry tokens |
+
+### SENSITIVE Reads (Warned)
+
+| Category | Example Paths | Why |
+|----------|---------------|-----|
+| Config Files | `config.json`, `settings.json` | May contain embedded secrets |
+| Backup Files | `.env.bak`, `credentials.backup` | Copies of sensitive data |
+| Suspicious Names | Files with "password", "secret", "token", "apikey" in name | High likelihood of secrets |
+
+### SAFE Reads (Allowed)
+
+| Category | Examples | Why |
+|----------|----------|-----|
+| Source Code | `.py`, `.js`, `.ts`, `.go`, `.rs`, etc. | Code review is safe |
+| Documentation | `README.md`, `CHANGELOG.md`, `LICENSE` | Public info |
+| Config Templates | `.env.example`, `.env.template`, `.env.sample` | No real secrets |
+| Package Manifests | `package.json`, `pyproject.toml`, `Cargo.toml` | Dependency lists |
+| Lock Files | `package-lock.json`, `yarn.lock`, `Cargo.lock` | Reproducibility |
+| Build Config | `Makefile`, `Dockerfile`, `docker-compose.yml` | Build instructions |
+
+### When Read is Blocked
+
+```
+🛑 BLOCKED: SSH private key (RSA)
+
+File: ~/.ssh/id_rsa
+Pattern: SSH private key (RSA)
+
+This file may contain sensitive credentials.
+If you need to read this file, use '/hs skip' first.
+```
+
+**The user must explicitly bypass with `/hs skip` before retrying.**
+
+---
+
 ## Quick Reference Card
 
 ```
@@ -347,6 +401,20 @@ Instead, let me [safer approach].
 |  3. Risky list? -> Explain + Confirm             |
 |  4. Dangerous list? -> Options + Wait            |
 |  5. Uncertain? -> Default to RISKY, ask          |
++--------------------------------------------------+
+
++--------------------------------------------------+
+|  BEFORE ANY FILE READ (v1.3)                     |
++--------------------------------------------------+
+|  BLOCK: .ssh/, .aws/, .env, credentials.json,   |
+|         .kube/config, .docker/config.json,      |
+|         .npmrc, .pypirc, *.pem, *.key           |
+|                                                  |
+|  WARN:  config.json, settings.json, files with  |
+|         "password", "secret", "token" in name   |
+|                                                  |
+|  ALLOW: Source code, docs, package manifests,   |
+|         .env.example, .env.template             |
 +--------------------------------------------------+
 
 +--------------------------------------------------+
@@ -368,12 +436,22 @@ Instead, let me [safer approach].
 |    without verification                          |
 |  - Assume "the user knows what they want"        |
 |    for destructive operations                    |
+|  - Read credential files without user consent    |
 +--------------------------------------------------+
 ```
 
 ---
 
 ## Changelog
+
+### v1.3 (2026-01-20)
+- **NEW FEATURE:** Read Tool Protection — blocks reading of credential files
+- Added Section 9: Read Tool Protection with DANGEROUS/SENSITIVE/SAFE patterns
+- Blocks: `.ssh/`, `.aws/`, `.env`, `credentials.json`, `.kube/config`, etc.
+- Warns: `config.json`, files with "password", "secret", "token" in name
+- Allows: Source code, documentation, `.env.example` templates
+- Added Read protection to Quick Reference Card
+- Updated skill description to include file read protection
 
 ### v1.1 (2025-01-18)
 - Added Package Manager Force Operations to INSTANT BLOCK
@@ -408,7 +486,7 @@ This skill is optional for Claude Code users who have the Hardstop plugin instal
 
 ---
 
-**Version:** 1.1
+**Version:** 1.3
 **Author:** Francesco Marinoni Moretto
 **License:** CC-BY-4.0
 **Repository:** https://github.com/frmoretto/hardstop

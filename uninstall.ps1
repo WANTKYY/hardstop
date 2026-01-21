@@ -33,7 +33,7 @@ if (Test-Path $SkillDest) {
 Write-Host "[3/4] Removing hooks from: $SettingsFile"
 if (Test-Path $SettingsFile) {
     $content = Get-Content $SettingsFile -Raw
-    if ($content -match "pre_tool_use.py") {
+    if ($content -match "pre_tool_use.py|pre_read.py") {
         Copy-Item $SettingsFile "${SettingsFile}.backup"
         Write-Host "      Backed up settings to ${SettingsFile}.backup"
 
@@ -52,11 +52,12 @@ except:
     sys.exit(1)
 
 if 'hooks' in settings and 'PreToolUse' in settings['hooks']:
-    # Filter out Hardstop hooks
+    # Filter out Hardstop hooks (Bash + Read)
     settings['hooks']['PreToolUse'] = [
         hook for hook in settings['hooks']['PreToolUse']
         if not any(
-            'pre_tool_use.py' in h.get('command', '')
+            'pre_tool_use.py' in h.get('command', '') or
+            'pre_read.py' in h.get('command', '')
             for h in hook.get('hooks', [])
         )
     ]

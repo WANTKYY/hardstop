@@ -97,12 +97,25 @@ if 'PreToolUse' not in settings['hooks']:
     settings['hooks']['PreToolUse'] = []
 
 import os
-hook_path = os.path.join(os.path.expanduser('~'), '.claude', 'plugins', 'hs', 'hooks', 'pre_tool_use.py').replace('\\', '/')
+hook_base = os.path.join(os.path.expanduser('~'), '.claude', 'plugins', 'hs', 'hooks')
+bash_hook = os.path.join(hook_base, 'pre_tool_use.py').replace('\\', '/')
+read_hook = os.path.join(hook_base, 'pre_read.py').replace('\\', '/')
+
+# Add Bash hook
 settings['hooks']['PreToolUse'].append({
     'matcher': 'Bash',
     'hooks': [{
         'type': 'command',
-        'command': f'python {hook_path}',
+        'command': f'python {bash_hook}',
+        'timeout': 30
+    }]
+})
+# Add Read hook (v1.3 - secrets protection)
+settings['hooks']['PreToolUse'].append({
+    'matcher': 'Read',
+    'hooks': [{
+        'type': 'command',
+        'command': f'python {read_hook}',
         'timeout': 30
     }]
 })
@@ -112,7 +125,7 @@ with open(settings_file, 'w', encoding='utf-8') as f:
 "@
         $pythonScript | python - "$SettingsFile"
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "      Hooks configured." -ForegroundColor Green
+            Write-Host "      Hooks configured (Bash + Read)." -ForegroundColor Green
         } else {
             Write-Host "      WARNING: Could not configure hooks. Add manually." -ForegroundColor Yellow
         }
@@ -125,18 +138,30 @@ import os
 import sys
 
 settings_file = sys.argv[1]
-hook_path = os.path.join(os.path.expanduser('~'), '.claude', 'plugins', 'hs', 'hooks', 'pre_tool_use.py').replace('\\', '/')
+hook_base = os.path.join(os.path.expanduser('~'), '.claude', 'plugins', 'hs', 'hooks')
+bash_hook = os.path.join(hook_base, 'pre_tool_use.py').replace('\\', '/')
+read_hook = os.path.join(hook_base, 'pre_read.py').replace('\\', '/')
 
 settings = {
     'hooks': {
-        'PreToolUse': [{
-            'matcher': 'Bash',
-            'hooks': [{
-                'type': 'command',
-                'command': f'python {hook_path}',
-                'timeout': 30
-            }]
-        }]
+        'PreToolUse': [
+            {
+                'matcher': 'Bash',
+                'hooks': [{
+                    'type': 'command',
+                    'command': f'python {bash_hook}',
+                    'timeout': 30
+                }]
+            },
+            {
+                'matcher': 'Read',
+                'hooks': [{
+                    'type': 'command',
+                    'command': f'python {read_hook}',
+                    'timeout': 30
+                }]
+            }
+        ]
     }
 }
 
@@ -145,7 +170,7 @@ with open(settings_file, 'w', encoding='utf-8') as f:
 "@
     $pythonScript | python - "$SettingsFile"
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "      Settings created with hooks." -ForegroundColor Green
+        Write-Host "      Settings created with hooks (Bash + Read)." -ForegroundColor Green
     } else {
         Write-Host "      WARNING: Could not create settings. Add manually." -ForegroundColor Yellow
     }

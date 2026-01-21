@@ -33,7 +33,7 @@ fi
 # Step 3: Remove hooks from settings.json
 echo "[3/4] Removing hooks from: $SETTINGS_FILE"
 if [ -f "$SETTINGS_FILE" ]; then
-    if grep -q "pre_tool_use.py" "$SETTINGS_FILE" 2>/dev/null; then
+    if grep -qE "pre_tool_use.py|pre_read.py" "$SETTINGS_FILE" 2>/dev/null; then
         cp "$SETTINGS_FILE" "${SETTINGS_FILE}.backup"
         echo "      Backed up settings to ${SETTINGS_FILE}.backup"
 
@@ -46,11 +46,12 @@ with open(settings_file, 'r') as f:
     settings = json.load(f)
 
 if 'hooks' in settings and 'PreToolUse' in settings['hooks']:
-    # Filter out Hardstop hooks
+    # Filter out Hardstop hooks (Bash + Read)
     settings['hooks']['PreToolUse'] = [
         hook for hook in settings['hooks']['PreToolUse']
         if not any(
-            'pre_tool_use.py' in h.get('command', '')
+            'pre_tool_use.py' in h.get('command', '') or
+            'pre_read.py' in h.get('command', '')
             for h in hook.get('hooks', [])
         )
     ]

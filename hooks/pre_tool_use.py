@@ -39,7 +39,7 @@ STATE_DIR = Path.home() / ".hardstop"
 STATE_FILE = STATE_DIR / "state.json"
 SKIP_FILE = STATE_DIR / "skip_next"
 LOG_FILE = STATE_DIR / "audit.log"
-PLUGIN_VERSION = "1.2.0"
+PLUGIN_VERSION = "1.3.0"
 
 # Fail-closed: if True, errors during safety check block the command
 FAIL_CLOSED = True

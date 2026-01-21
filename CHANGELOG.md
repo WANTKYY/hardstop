@@ -2,6 +2,86 @@
 
 All notable changes to Hardstop will be documented in this file.
 
+## [1.3.0] - 2026-01-20
+
+### New Feature: Read Tool Protection
+
+Hardstop now monitors the Claude Code `Read` tool to prevent AI from accessing credential files.
+
+**DANGEROUS (Blocked):**
+- SSH keys: `~/.ssh/id_rsa`, `~/.ssh/id_ed25519`, etc.
+- Cloud credentials: `~/.aws/credentials`, `~/.config/gcloud/credentials.db`, `~/.azure/credentials`
+- Environment files: `.env`, `.env.local`, `.env.production`
+- Docker/Kubernetes: `~/.docker/config.json`, `~/.kube/config`
+- Database credentials: `~/.pgpass`, `~/.my.cnf`
+- Package managers: `~/.npmrc`, `~/.pypirc`
+
+**SENSITIVE (Warned):**
+- Generic configs: `config.json`, `settings.json`
+- Files with "password", "secret", "token", "apikey" in name
+
+**SAFE (Allowed):**
+- Source code: `.py`, `.js`, `.ts`, `.go`, etc.
+- Documentation: `README.md`, `CHANGELOG.md`, `LICENSE`
+- Config templates: `.env.example`, `.env.template`
+- Package manifests: `package.json`, `pyproject.toml`
+
+### Added
+- `hooks/pre_read.py` — New hook for Read tool interception
+- Read matcher in `hooks/hooks.json`
+- Read hook configuration in install scripts (`install.sh`, `install.ps1`)
+- Read hook removal in uninstall scripts (`uninstall.sh`, `uninstall.ps1`)
+- Section 9 in SKILL.md documenting Read protection
+- Updated Quick Reference Card with Read tool guidance
+- Comprehensive test suite for Read protection (`tests/test_read_hook.py`)
+
+### Fixed
+- Uninstallers now remove both Bash and Read hooks (backward compatible with v1.0-v1.2)
+
+### Changed
+- Updated skill description to include "FILE READ" trigger
+- Updated SKILL.md version to 1.3
+- Updated plugin.json version to 1.3.0
+- Updated pre_tool_use.py version to 1.3.0
+
+---
+
+## [1.2.0] - 2026-01-20
+
+### New Patterns (~60 added)
+- **Shell wrappers:** `bash -c`, `sh -c`, `sudo bash -c`, `xargs`, `find -exec`
+- **Cloud CLI:** AWS (S3, EC2, RDS, CloudFormation), GCP (gcloud), Firebase, Kubernetes (kubectl, helm)
+- **Infrastructure:** Terraform `destroy`, Pulumi `destroy`, Docker `prune`
+- **Database CLI:** Redis (`FLUSHALL`), MongoDB (`dropDatabase`), PostgreSQL (`dropdb`), MySQL (`mysqladmin drop`)
+- **Platform CLI:** Vercel, Netlify, Heroku, Fly.io, GitHub (`gh repo delete`), npm (`unpublish`)
+- **SQL:** `DROP TABLE`, `DROP DATABASE`, `TRUNCATE`, `DELETE FROM` without WHERE
+
+### Fixed (False Positives)
+- Removed alias patterns (blocked legitimate aliases like `alias ls='ls --color'`)
+- Made `find -delete` path-specific (only blocks on `~`, `/home`, `/`, `/etc`, `/usr`, `/var`)
+
+### Stats
+- Total dangerous patterns: 137
+- Total safe patterns: 66
+
+---
+
+## [1.1.0] - 2026-01-18
+
+### Multi-Platform Skill Distribution
+- Added skill files for Claude.ai Projects, Codex, GitHub Copilot
+- Added `AGENTS.md` universal discovery file (LLM-readable agent capabilities)
+- Added `marketplace.json` for plugin registry integration
+- Added `dist/hardstop.skill` for Claude.ai upload
+
+### Package Manager Safety
+- Added Package Manager Force Operations to INSTANT BLOCK list
+- Added new Section 4: Package Manager Safety with dpkg/rpm flag reference
+- Added error suppression patterns (`2>/dev/null`, `|| true`) as risk escalators
+- Added package info commands (`dpkg -l`, `apt list`) to SAFE list
+
+---
+
 ## [1.0.0] - 2025-01-17
 
 First public release.

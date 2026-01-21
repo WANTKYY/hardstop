@@ -74,14 +74,20 @@ if 'hooks' not in settings:
     settings['hooks'] = {}
 if 'PreToolUse' not in settings['hooks']:
     settings['hooks']['PreToolUse'] = []
+# Add Bash hook
 settings['hooks']['PreToolUse'].append({
     'matcher': 'Bash',
     'hooks': [{'type': 'command', 'command': 'python ~/.claude/plugins/hs/hooks/pre_tool_use.py', 'timeout': 30}]
 })
+# Add Read hook (v1.3 - secrets protection)
+settings['hooks']['PreToolUse'].append({
+    'matcher': 'Read',
+    'hooks': [{'type': 'command', 'command': 'python ~/.claude/plugins/hs/hooks/pre_read.py', 'timeout': 30}]
+})
 with open(settings_file, 'w') as f:
     json.dump(settings, f, indent=2)
 "
-            echo "      Hooks configured."
+            echo "      Hooks configured (Bash + Read)."
         else
             echo "      WARNING: Python not found. Add hooks manually (see INSTALLATION.md)"
         fi
@@ -100,12 +106,22 @@ else
             "timeout": 30
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python ~/.claude/plugins/hs/hooks/pre_read.py",
+            "timeout": 30
+          }
+        ]
       }
     ]
   }
 }
 EOF
-    echo "      Settings created with hooks."
+    echo "      Settings created with hooks (Bash + Read)."
 fi
 
 echo ""
