@@ -3,12 +3,12 @@
 Hardstop Plugin — Slash Command Handler
 
 Commands:
-  /hs on      Enable protection (default)
-  /hs off     Disable protection
-  /hs skip    Skip next command only
-  /hs status  Show current state
-  /hs log     Show recent audit log entries
-  /hs help    Show this help
+  /hs on        Enable protection (default)
+  /hs off       Disable protection
+  /hs skip [n]  Skip next n commands (default: 1)
+  /hs status    Show current state
+  /hs log       Show recent audit log entries
+  /hs help      Show this help
 """
 
 import sys
@@ -77,26 +77,49 @@ def cmd_off():
     print("   Use '/hs on' to re-enable.")
 
 
-def cmd_skip():
+def cmd_skip(count: int = 1):
+    """Set skip counter for next N commands."""
+    if count < 1:
+        print("❌ Skip count must be at least 1")
+        return
+    if count > 100:
+        print("❌ Skip count cannot exceed 100 (safety limit)")
+        return
+
     try:
         STATE_DIR.mkdir(parents=True, exist_ok=True)
-        SKIP_FILE.write_text("1")
+        SKIP_FILE.write_text(str(count))
     except Exception as e:
         print(f"Error setting skip flag: {e}", file=sys.stderr)
         return
-    print("⏭️  Next command will skip safety check")
-    print("   One-time bypass — protection resumes after.")
+
+    if count == 1:
+        print("⏭️  Next command will skip safety check")
+        print("   One-time bypass — protection resumes after.")
+    else:
+        print(f"⏭️  Next {count} commands will skip safety check")
+        print("   Multi-skip bypass — protection resumes after.")
 
 
 def cmd_status():
     state = load_state()
     enabled = state.get("enabled", True)
-    skip_next = SKIP_FILE.exists()
+
+    # Check skip count
+    skip_count = 0
+    if SKIP_FILE.exists():
+        try:
+            skip_count = int(SKIP_FILE.read_text().strip())
+        except (ValueError, IOError):
+            skip_count = 1  # Fallback for old format
 
     print(f"Hardstop v{PLUGIN_VERSION}")
     print()
     print(f"  Status:      {'🟢 Enabled' if enabled else '🔴 Disabled'}")
-    print(f"  Skip next:   {'Yes' if skip_next else 'No'}")
+    if skip_count > 0:
+        print(f"  Skip next:   {skip_count} command{'s' if skip_count > 1 else ''}")
+    else:
+        print(f"  Skip next:   No")
     print(f"  Fail mode:   Fail-closed (errors block commands)")
     print()
     print(f"  State file:  {STATE_FILE}")
@@ -161,12 +184,12 @@ Hardstop v{PLUGIN_VERSION}
 The mechanical brake for AI-generated commands
 
 Commands:
-  /hs on      Enable protection (default)
-  /hs off     Disable protection temporarily
-  /hs skip    Skip safety check for next command only
-  /hs status  Show current state and stats
-  /hs log     Show recent audit log entries
-  /hs help    Show this help
+  /hs on        Enable protection (default)
+  /hs off       Disable protection temporarily
+  /hs skip [n]  Skip safety check for next n commands (default: 1)
+  /hs status    Show current state and stats
+  /hs log       Show recent audit log entries
+  /hs help      Show this help
 
 Aliases: /hardstop, /hard, /hs
 
@@ -191,13 +214,24 @@ def main():
 
     subcommand = sys.argv[1].lower()
 
+    # Handle skip with optional count argument
+    if subcommand in ("skip", "bypass"):
+        count = 1
+        if len(sys.argv) >= 3:
+            try:
+                count = int(sys.argv[2])
+            except ValueError:
+                print(f"❌ Invalid skip count: {sys.argv[2]}")
+                print("   Usage: /hs skip [count]")
+                return
+        cmd_skip(count)
+        return
+
     commands = {
         "on": cmd_on,
         "enable": cmd_on,
         "off": cmd_off,
         "disable": cmd_off,
-        "skip": cmd_skip,
-        "bypass": cmd_skip,
         "status": cmd_status,
         "state": cmd_status,
         "log": cmd_log,

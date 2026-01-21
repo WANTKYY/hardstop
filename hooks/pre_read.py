@@ -339,15 +339,50 @@ def check_safe_patterns(file_path: str) -> bool:
 
 # === SKIP MECHANISM ===
 
-def is_skip_enabled() -> bool:
-    """Check if skip_next flag is set (one-time use)."""
-    if SKIP_FILE.exists():
+def get_skip_count() -> int:
+    """Get current skip count (0 if no skips remaining)."""
+    if not SKIP_FILE.exists():
+        return 0
+    try:
+        content = SKIP_FILE.read_text().strip()
+        return int(content)
+    except (ValueError, IOError, OSError):
+        return 1  # Old format or error = treat as 1
+
+
+def decrement_skip() -> Tuple[bool, int]:
+    """
+    Decrement the skip counter. Returns (was_skipped, remaining_count).
+    Supports both old format (file exists = 1 skip) and new format (file contains count).
+    """
+    if not SKIP_FILE.exists():
+        return False, 0
+
+    try:
+        content = SKIP_FILE.read_text().strip()
         try:
-            SKIP_FILE.unlink()  # Consume the skip flag
-        except (IOError, OSError):
-            pass
-        return True
-    return False
+            count = int(content)
+        except ValueError:
+            count = 1  # Old format or invalid = treat as 1
+
+        if count <= 1:
+            # Last skip, remove the file
+            try:
+                SKIP_FILE.unlink()
+            except (IOError, OSError):
+                pass
+            return True, 0
+        else:
+            # Decrement and save
+            SKIP_FILE.write_text(str(count - 1))
+            return True, count - 1
+    except (IOError, OSError):
+        return False, 0
+
+
+def is_skip_enabled() -> bool:
+    """Check if skip_next flag is set (legacy function, kept for compatibility)."""
+    return SKIP_FILE.exists()
 
 
 # === OUTPUT FUNCTIONS ===
@@ -436,9 +471,15 @@ def main():
         pass
 
     # Check skip flag first
-    if is_skip_enabled():
-        log_decision(normalized_path, "ALLOW", "skip_next flag set", "skip")
-        sys.exit(0)
+    if SKIP_FILE.exists():
+        was_skipped, remaining = decrement_skip()
+        if was_skipped:
+            log_decision(normalized_path, "ALLOW", f"Skip (remaining: {remaining})", "skip")
+            if remaining > 0:
+                print(f"⏭️  Read check skipped ({remaining} skip{'s' if remaining > 1 else ''} remaining)", file=sys.stderr)
+            else:
+                print("⏭️  Read check skipped (last skip, protection resumed)", file=sys.stderr)
+            sys.exit(0)
 
     # Check SAFE patterns first (fast path for common files)
     if check_safe_patterns(normalized_path):

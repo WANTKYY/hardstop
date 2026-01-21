@@ -464,8 +464,49 @@ def save_state(state: dict):
         print(f"Warning: Could not save state: {e}", file=sys.stderr)
 
 
+def decrement_skip() -> bool:
+    """
+    Decrement the skip counter. Returns True if skip was consumed.
+    Supports both old format (file exists = 1 skip) and new format (file contains count).
+    """
+    if not SKIP_FILE.exists():
+        return False
+
+    try:
+        content = SKIP_FILE.read_text().strip()
+        try:
+            count = int(content)
+        except ValueError:
+            count = 1  # Old format or invalid = treat as 1
+
+        if count <= 1:
+            # Last skip, remove the file
+            try:
+                SKIP_FILE.unlink()
+            except (IOError, OSError):
+                pass
+        else:
+            # Decrement and save
+            SKIP_FILE.write_text(str(count - 1))
+
+        return True
+    except (IOError, OSError):
+        return False
+
+
+def get_skip_count() -> int:
+    """Get current skip count (0 if no skips remaining)."""
+    if not SKIP_FILE.exists():
+        return 0
+    try:
+        content = SKIP_FILE.read_text().strip()
+        return int(content)
+    except (ValueError, IOError, OSError):
+        return 1  # Old format or error = treat as 1
+
+
 def clear_skip():
-    """Clear one-time skip flag."""
+    """Clear all skip flags (legacy function, kept for compatibility)."""
     try:
         SKIP_FILE.unlink(missing_ok=True)
     except TypeError:
@@ -887,9 +928,14 @@ def main():
         sys.exit(0)
 
     if SKIP_FILE.exists():
-        clear_skip()
-        log_decision(command, "ALLOW", "One-time skip", "skip", cwd)
-        print("⏭️  Safety check skipped (one-time)", file=sys.stderr)
+        remaining = get_skip_count()
+        decrement_skip()
+        new_remaining = remaining - 1
+        log_decision(command, "ALLOW", f"Skip ({remaining} -> {new_remaining} remaining)", "skip", cwd)
+        if new_remaining > 0:
+            print(f"⏭️  Safety check skipped ({new_remaining} skip{'s' if new_remaining > 1 else ''} remaining)", file=sys.stderr)
+        else:
+            print("⏭️  Safety check skipped (last skip, protection resumed)", file=sys.stderr)
         sys.exit(0)
 
     # === SPECIAL CASE: Uninstall script detection ===
