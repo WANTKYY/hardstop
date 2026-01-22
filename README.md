@@ -204,6 +204,17 @@ View recent entries with `/hs log`.
 
 ---
 
+## 📚 Skill-Only Mode (Claude.ai / Desktop Projects)
+
+For Claude.ai Projects or Claude Desktop without hook support, use the **SKILL.md** file directly:
+
+1. Copy [`skills/hardstop/SKILL.md`](skills/hardstop/SKILL.md) to your Project's knowledge base
+2. The skill provides LLM-level safety awareness (soft guardrails, no deterministic blocking)
+
+This is useful for platforms that don't support hooks but can load custom instructions.
+
+---
+
 ## 🆚 Why Hardstop?
 
 | Feature | Hardstop | cc-safety-net | damage-control | Leash |

@@ -4,13 +4,14 @@
 
 ## What This Repository Does
 
-**Hardstop** is a pre-execution safety system for AI-generated shell commands. It acts as a fail-closed verification layer, blocking dangerous patterns before they execute.
+**Hardstop** is a pre-execution safety system for AI-generated shell commands and file reads. It acts as a fail-closed verification layer, blocking dangerous patterns before they execute.
 
 **Core Question:** "If this action goes wrong, can the user recover?"
 
-**Two-layer defense:**
+**Three-layer defense:**
 - **Pattern matching** — Instant regex-based detection of known dangerous patterns
 - **LLM analysis** — Semantic analysis for edge cases and novel threats
+- **Read protection** — Blocks reading credential files (.ssh, .aws, .env, etc.)
 
 ## Quick Start for Agents
 
@@ -27,7 +28,8 @@ Read: skills/hardstop/SKILL.md
 | Component | Purpose | Location |
 |-----------|---------|----------|
 | Safety Skill | Pre-execution checklist for LLMs | `skills/hardstop/SKILL.md` |
-| Plugin Hook | Deterministic command blocking | `hooks/pre_tool_use.py` |
+| Bash Hook | Deterministic command blocking | `hooks/pre_tool_use.py` |
+| Read Hook | Credential file read blocking | `hooks/pre_read.py` |
 | CLI Commands | Plugin control (`/hs on`, `/hs status`) | `commands/hs_cmd.py` |
 
 ### 3. Trigger Phrases
@@ -83,6 +85,12 @@ Commands that are blocked immediately, no exceptions:
 - Fork bombs, reverse shells
 - Credential exfiltration (`curl -d @~/.ssh/`)
 - Disk destruction (`dd of=/dev/sda`, `mkfs`)
+
+**Read Protection (v1.3):**
+- SSH keys (`~/.ssh/id_rsa`, `~/.ssh/id_ed25519`)
+- Cloud credentials (`~/.aws/credentials`, `~/.config/gcloud/`)
+- Environment files (`.env`, `.env.local`, `.env.production`)
+- Docker/Kubernetes configs (`~/.docker/config.json`, `~/.kube/config`)
 
 **Windows:**
 - `rd /s /q C:\` — Drive deletion
